@@ -1,6 +1,3 @@
-Here comes a README that doesn’t just wear a lab coat… it *struts in like a doctor with sunglasses*.
-
----
 
 # 🏥 MediScan AI — Your Health Document Assistant
 
