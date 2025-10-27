@@ -1,6 +1,7 @@
 import streamlit as st
 from PyPDF2 import PdfReader
 from datetime import datetime
+import torch
 from dotenv import load_dotenv
 import openai
 import os
@@ -13,19 +14,34 @@ if not openai.api_key:
     st.error("Please set OPENAI_API_KEY in your .env file")
     st.stop()
 
-# Helper Functions
-def get_completion(prompt, model="gpt-3.5-turbo", temperature=0.7):
-    """Get completion from OpenAI API"""
+# Page Configuration
+st.set_page_config(
+    page_title="MediScan AI - Your Health Document Assistant",
+    page_icon="🏥",
+    layout="wide"
+)
+
+# Helper function to call GPT-4
+@st.cache_data(ttl=3600)
+def get_gpt4_response(prompt, max_tokens=5000, temperature=0.7):
     try:
-        messages = [{"role": "user", "content": prompt}]
         response = openai.ChatCompletion.create(
-            model=model,
-            messages=messages,
-            temperature=temperature
+            model="gpt-4o-mini",  # Using GPT-4o mini model
+            messages=[
+                {"role": "system", "content": "You are a medical expert assistant helping analyze medical documents."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=0.95,
+            frequency_penalty=0.0,
+            presence_penalty=0.0
         )
         return response.choices[0].message["content"]
     except Exception as e:
         return f"Error: {str(e)}"
+
+# Helper Functions
 
 def extract_text_from_pdf(pdf_file):
     """Extract text from uploaded PDF"""
@@ -40,60 +56,78 @@ def extract_text_from_pdf(pdf_file):
         return None
 
 def process_document(text, question_type, specific_query=None):
-    """Generic document processing function"""
-    prompts = {
-        "qa": f"""As a medical assistant, answer this question based on the document:
-                Document Content: {text[:3000]}
-                Question: {specific_query}
-                Provide a clear, patient-friendly answer. If the information isn't in the document, say so.""",
-        
-        "summary": f"""Summarize this medical document in clear, simple language:
-                    Document: {text[:3000]}
-                    Create a structured summary with:
-                    1. Document Type
-                    2. Key Findings (bullet points)
-                    3. Critical Values or Concerns (if any)
-                    4. Recommendations (if mentioned)""",
-        
-        "eli5": f"""Explain this medical term as if explaining to a 5-year-old:
-                Term: {specific_query}
-                Context: {text[:1500]}
-                Use simple words and friendly explanations.""",
-        
-        "medications": f"""Extract all medications from this document:
-                        {text[:2000]}
-                        List each medication with:
-                        - Medicine name
-                        - Dosage
-                        - Frequency
-                        - Special instructions""",
-        
-        "recommendations": f"""Based on this health document, provide lifestyle recommendations:
-                            {text[:2000]}
-                            Include:
-                            1. Diet suggestions
-                            2. Exercise recommendations
-                            3. Lifestyle modifications
-                            4. Preventive care tips
-                            5. Follow-up suggestions"""
-    }
-    
-    temperatures = {
-        "qa": 0.3,
-        "summary": 0.3,
-        "eli5": 0.7,
-        "medications": 0.1,
-        "recommendations": 0.7
-    }
-    
-    return get_completion(prompts[question_type], temperature=temperatures[question_type])
+    """Process document using GPT-4"""
+    try:
+        if question_type == "qa":
+            prompt = (
+                "You are a medical expert. Answer the following question based on the provided medical document. "
+                "Be precise and accurate. If the information is not in the document, say so clearly.\n\n"
+                f"Document: {text[:3000]}\n\n"
+                f"Question: {specific_query}"
+            )
+            return get_gpt4_response(prompt, max_tokens=300, temperature=0.3)
 
-# Page Configuration
-st.set_page_config(
-    page_title="MediScan AI - Your Health Document Assistant",
-    page_icon="🏥",
-    layout="wide"
-)
+        elif question_type == "summary":
+            chunks = [text[i:i+3000] for i in range(0, len(text), 3000)]
+            summaries = []
+            for chunk in chunks:
+                prompt = (
+                    "Create a detailed medical summary of the following document section. Include:\n"
+                    "1. Key medical findings\n"
+                    "2. Important diagnoses\n"
+                    "3. Critical values\n"
+                    "4. Treatment recommendations\n\n"
+                    f"Document section: {chunk}"
+                )
+                summary = get_gpt4_response(prompt, max_tokens=400, temperature=0.3)
+                summaries.append(summary)
+            return "\n\n".join(summaries)
+
+        elif question_type == "eli5":
+            prompt = (
+                "You are explaining medical terms to a 5-year-old child. "
+                "Use simple words, friendly tone, and helpful analogies.\n\n"
+                f"Medical term to explain: {specific_query}\n\n"
+                f"Context from medical document: {text[:1500]}\n\n"
+                "Provide a child-friendly explanation:"
+            )
+            return get_gpt4_response(prompt, max_tokens=250, temperature=0.7)
+
+        elif question_type == "medications":
+            prompt = (
+                "As a pharmacist, create a detailed list of all medications mentioned in this medical document. "
+                "For each medication, include:\n"
+                "- Medicine name\n"
+                "- Dosage information\n"
+                "- Frequency of use\n"
+                "- Administration route\n"
+                "- Any special instructions\n\n"
+                f"Medical document: {text[:2500]}"
+            )
+            medications = get_gpt4_response(prompt, max_tokens=400, temperature=0.3)
+            if "no medication" in medications.lower() or not medications.strip():
+                return "No medications found in the document."
+            return "💊 Medication List:\n\n" + medications
+
+        elif question_type == "recommendations":
+            prompt = (
+                "As a healthcare provider, provide detailed, evidence-based health recommendations "
+                "based on this medical document. Cover these categories:\n"
+                "1. Diet and Nutrition\n"
+                "2. Physical Activity\n"
+                "3. Lifestyle Modifications\n"
+                "4. Preventive Care\n"
+                "5. Follow-up Care\n\n"
+                f"Medical document: {text[:2500]}"
+            )
+            recommendations = get_gpt4_response(prompt, max_tokens=500, temperature=0.4)
+            return "🌟 Health Recommendations:\n\n" + recommendations
+
+    except Exception as e:
+        return f"Error processing document: {str(e)}"
+
+    except Exception as e:
+        return f"Error processing document: {str(e)}"
 
 # Custom CSS
 st.markdown("""
@@ -128,7 +162,7 @@ with st.sidebar:
     """)
     st.divider()
     st.markdown("### ℹ️ About")
-    st.info("Uses OpenAI GPT to help understand health documents. Always consult healthcare professionals.")
+    st.info("Uses specialized biomedical AI models to help understand health documents. Always consult healthcare professionals.")
 
 # File Upload
 uploaded_file = st.file_uploader("📁 Upload your health document (PDF)", type=['pdf'])
