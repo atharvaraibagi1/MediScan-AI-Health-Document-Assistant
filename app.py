@@ -62,7 +62,7 @@ def process_document(text, question_type, specific_query=None):
             prompt = (
                 "You are a medical expert. Answer the following question based on the provided medical document. "
                 "Be precise and accurate. If the information is not in the document, say so clearly.\n\n"
-                f"Document: {text[:3000]}\n\n"
+                f"Document: {text[:5000]}\n\n"
                 f"Question: {specific_query}"
             )
             return get_gpt4_response(prompt, max_tokens=300, temperature=0.3)
@@ -88,7 +88,7 @@ def process_document(text, question_type, specific_query=None):
                 "You are explaining medical terms to a 5-year-old child. "
                 "Use simple words, friendly tone, and helpful analogies.\n\n"
                 f"Medical term to explain: {specific_query}\n\n"
-                f"Context from medical document: {text[:1500]}\n\n"
+                f"Context from medical document: {text[:4000]}\n\n"
                 "Provide a child-friendly explanation:"
             )
             return get_gpt4_response(prompt, max_tokens=250, temperature=0.7)
@@ -102,7 +102,7 @@ def process_document(text, question_type, specific_query=None):
                 "- Frequency of use\n"
                 "- Administration route\n"
                 "- Any special instructions\n\n"
-                f"Medical document: {text[:2500]}"
+                f"Medical document: {text[:5000]}"
             )
             medications = get_gpt4_response(prompt, max_tokens=400, temperature=0.3)
             if "no medication" in medications.lower() or not medications.strip():
@@ -118,7 +118,7 @@ def process_document(text, question_type, specific_query=None):
                 "3. Lifestyle Modifications\n"
                 "4. Preventive Care\n"
                 "5. Follow-up Care\n\n"
-                f"Medical document: {text[:2500]}"
+                f"Medical document: {text[:5000]}"
             )
             recommendations = get_gpt4_response(prompt, max_tokens=500, temperature=0.4)
             return "🌟 Health Recommendations:\n\n" + recommendations
