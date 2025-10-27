@@ -79,7 +79,7 @@ def process_document(text, question_type, specific_query=None):
                     "4. Treatment recommendations\n\n"
                     f"Document section: {chunk}"
                 )
-                summary = get_gpt4_response(prompt, max_tokens=400, temperature=0.3)
+                summary = get_gpt4_response(prompt, max_tokens=5000, temperature=0.3)
                 summaries.append(summary)
             return "\n\n".join(summaries)
 
@@ -91,7 +91,7 @@ def process_document(text, question_type, specific_query=None):
                 f"Context from medical document: {text[:4000]}\n\n"
                 "Provide a child-friendly explanation:"
             )
-            return get_gpt4_response(prompt, max_tokens=250, temperature=0.7)
+            return get_gpt4_response(prompt, max_tokens=5000, temperature=0.7)
 
         elif question_type == "medications":
             prompt = (
@@ -104,7 +104,7 @@ def process_document(text, question_type, specific_query=None):
                 "- Any special instructions\n\n"
                 f"Medical document: {text[:5000]}"
             )
-            medications = get_gpt4_response(prompt, max_tokens=400, temperature=0.3)
+            medications = get_gpt4_response(prompt, max_tokens=5000, temperature=0.3)
             if "no medication" in medications.lower() or not medications.strip():
                 return "No medications found in the document."
             return "💊 Medication List:\n\n" + medications
@@ -120,7 +120,7 @@ def process_document(text, question_type, specific_query=None):
                 "5. Follow-up Care\n\n"
                 f"Medical document: {text[:5000]}"
             )
-            recommendations = get_gpt4_response(prompt, max_tokens=500, temperature=0.4)
+            recommendations = get_gpt4_response(prompt, max_tokens=5000, temperature=0.4)
             return "🌟 Health Recommendations:\n\n" + recommendations
 
     except Exception as e:
